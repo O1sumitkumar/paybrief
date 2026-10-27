@@ -50,15 +50,16 @@ export function extractJSON(text) {
 
 // ---------- deterministic mock ----------
 const CATALOG = [
-  { re: /landing|website|site|web ?page|homepage/i, name: 'Landing page design + build', description: 'Responsive marketing page, up to 5 sections', quantity: 1, unit_amount: 900, scope: 'Responsive landing page (mobile-first) with up to 5 sections' },
+  { re: /\b(?:new |multi-?page |full |company )?website\b(?![\s\S]*landing)/i, name: 'Website design + build', description: 'Responsive multi-page site (up to 6 pages)', quantity: 1, unit_amount: 2200, scope: 'Responsive multi-page website (up to 6 pages)', excludes: 'landing' },
+  { re: /landing|one[- ]?page|web ?page|homepage|\bsite\b/i, name: 'Landing page design + build', description: 'Responsive marketing page, up to 5 sections', quantity: 1, unit_amount: 900, scope: 'Responsive landing page (mobile-first) with up to 5 sections' },
   { re: /logo|brand|identity/i, name: 'Brand identity kit', description: 'Logo, palette, typography guide', quantity: 1, unit_amount: 650, scope: 'Logo, colour palette and typography mini-guide' },
   { re: /shop|store|e-?commerce|checkout|cart/i, name: 'Store + checkout setup', description: 'Product catalogue and PayPal checkout', quantity: 1, unit_amount: 1400, scope: 'Product catalogue with PayPal checkout' },
-  { re: /app|mobile|ios|android|react native/i, name: 'Mobile app MVP screens', description: 'Core screens in React Native', quantity: 6, unit_amount: 220, scope: 'React Native MVP covering ~6 core screens' },
+  { re: /\bapps?\b|mobile|\bios\b|android|react native/i, name: 'Mobile app MVP screens', description: 'Core screens in React Native', quantity: 6, unit_amount: 220, scope: 'React Native MVP covering ~6 core screens' },
   { re: /seo|search/i, name: 'SEO foundation', description: 'Meta, sitemap, Core Web Vitals pass', quantity: 1, unit_amount: 300, scope: 'On-page SEO, sitemap and Core Web Vitals pass' },
   { re: /blog|cms|content/i, name: 'CMS + blog setup', description: 'Editable content with 3 templates', quantity: 1, unit_amount: 450, scope: 'CMS-backed blog with 3 editable templates' },
   { re: /video|reel|animation/i, name: 'Short promo video', description: '30–60s edited promo', quantity: 1, unit_amount: 500, scope: 'One 30–60 second promo video' },
-  { re: /ai|chatbot|gpt|llm|agent/i, name: 'AI assistant integration', description: 'LLM chat widget with guardrails', quantity: 1, unit_amount: 1100, scope: 'AI chat assistant integrated with guardrails' },
-  { re: /api|backend|integration|dashboard/i, name: 'Backend / integration work', description: 'API + dashboard development (hours)', quantity: 12, unit_amount: 45, scope: 'Backend API / dashboard integration work' },
+  { re: /\bai\b|chatbot|\bgpt|\bllm|\bagents?\b/i, name: 'AI assistant integration', description: 'LLM chat widget with guardrails', quantity: 1, unit_amount: 1100, scope: 'AI chat assistant integrated with guardrails' },
+  { re: /\bapis?\b|backend|integration|dashboard/i, name: 'Backend / integration work', description: 'API + dashboard development (hours)', quantity: 12, unit_amount: 45, scope: 'Backend API / dashboard integration work' },
 ];
 
 function detectCurrency(brief) {
@@ -73,7 +74,9 @@ const FX = { USD: 1, EUR: 0.92, GBP: 0.79, CAD: 1.37, AUD: 1.52, INR: 84 };
 
 export function mockQuote(brief) {
   const text = String(brief || '');
-  const hits = CATALOG.filter((c) => c.re.test(text));
+  let hits = CATALOG.filter((c) => c.re.test(text));
+  // a full website already covers a landing page
+  if (hits.some((c) => c.excludes === 'landing')) hits = hits.filter((c) => c.name !== 'Landing page design + build');
   const picked = hits.length ? hits.slice(0, 4) : [CATALOG[0]];
   const currency = detectCurrency(text);
   const rate = FX[currency];
@@ -89,6 +92,7 @@ export function mockQuote(brief) {
   const NAME = "([A-Z][\\w&'-]+(?:\\s+[A-Z][\\w&'-]+){0,2})";
   const nameMatch =
     text.match(new RegExp(`(?:[Ii] am|[Ii]'m|[Tt]his is|[Cc]lient:?|[Nn]ame:?)\\s+${NAME}`)) ||
+    text.match(new RegExp(`${NAME}\\s+here\\b`)) ||
     text.match(new RegExp(`(?:for|from)\\s+${NAME}`));
   const total = items.reduce((a, it) => a + it.quantity * it.unit_amount, 0);
   return {
@@ -107,7 +111,7 @@ export function mockQuote(brief) {
 }
 
 export function mockNudge(record) {
-  const name = record.quote?.client?.name || 'there';
+  const name = (record.quote?.client?.name || '').split(/\s+/)[0] || 'there';
   const amount = `${record.quote.currency} ${money(record.quote.total)}`;
   return {
     subject: `Friendly reminder: ${record.quote.title}`,

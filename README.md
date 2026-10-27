@@ -4,11 +4,23 @@
 
 Built for the PayPal AI Hackathon by Sumit Jha / AonHive.
 
+## Problem & who it's for
+
+Freelancers and small agencies (2–20 people) get briefs as messy WhatsApp/email text. Turning one into a priced scope, then an invoice, then chasing the client for payment costs hours per project and causes late or forgotten payments. PayBrief collapses that into one flow: **paste brief → reviewed quote → PayPal pay link in seconds → an agent that drafts the follow-ups for you.**
+
+## How PayPal + AI are used
+
+- **AI (OpenAI-compatible chat, JSON mode)** reads the brief and returns structured JSON: scope bullets, line items, currency, total, assumptions. A zod schema + money guardrails validate it (total must equal sum of line items — recomputed if not; per-line cap 50k, total cap 100k; ≤20 items) before anything reaches PayPal. AI also writes the reminder nudge (pay link kept verbatim; template fallback).
+- **PayPal REST (sandbox)**: OAuth2 `client_credentials` → **Invoicing v2** (`POST /v2/invoicing/invoices` draft → `POST /v2/invoicing/invoices/{id}/send` → payer-view pay link) or **Orders v2** (`POST /v2/checkout/orders`, intent CAPTURE → payer-action/approve link; APPROVED orders auto-captured). The reminder agent polls `GET /v2/invoicing/invoices/{id}` / `GET /v2/checkout/orders/{id}` to detect payment and stop nudging.
+- **Drafts only**: the reminder agent never sends email; invoices are sent with `send_to_recipient=false` by default (link only).
+
 ## Quick start
 
 ```bash
 npm install
-npm test          # 22 tests: AI schema/guardrails, PayPal client (mocked HTTP), reminder agent, HTTP e2e
+npm test          # 25 tests: AI schema/guardrails, PayPal client (mocked HTTP), reminder agent, HTTP e2e
+npm run simulate  # brief -> quote -> invoice + order -> reminder drafts -> paid, end-to-end in MOCK mode (11 checks)
+                  # SIMULATE_LIVE=1 npm run simulate  -> same flow against the real PayPal sandbox using env creds
 npm start         # builds the React UI if needed, serves everything on http://localhost:5174
 npm run dev       # API with --watch on :5174 + Vite dev UI on http://localhost:5173
 ```
@@ -82,4 +94,14 @@ Record in live mode (sandbox keys + AI key). Mock mode is for offline dev and fa
 ## Notes
 
 - Sandbox only by default; no real money moves. Don't commit `.env`.
-- `public/index.html`, `src/paypal-mock.js`, `src/reminder.js`, `scripts/simulate.mjs`, `scripts/remind.mjs` are from a parallel prototype and are **not** used by the app (untracked).
+- Parallel-prototype files (old `public/`, `src/paypal-mock.js`, `src/reminder.js`, `scripts/*.mjs`) were removed on 2026-10-27; `scripts/simulate.js` replaces them.
+
+## TODO (before Devpost submit — deadline Fri 13 Nov 2026 01:30 IST)
+
+- [ ] **Sumit:** PayPal Developer sandbox app → `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` in `.env` (developer.paypal.com → Apps & Credentials → Sandbox). Real PayPal API use is pass/fail for judging.
+- [ ] Run `SIMULATE_LIVE=1 npm run simulate` + the UI against sandbox; pay one invoice with a sandbox buyer account; fix any live-API field errors (invoicer/recipient fields, payment_term).
+- [ ] **Sumit:** OpenAI-compatible key (`OPENAI_API_KEY`, optional `OPENAI_BASE_URL`/`OPENAI_MODEL`) so the demo shows live AI, not the mock.
+- [ ] Record the <3 min demo video in live mode (script above) and upload public on YouTube.
+- [ ] Public GitHub repo (with Sumit's OK) + Devpost text (problem, how PayPal/AI are used, what's next, built with).
+- [ ] Nice-to-have: PayPal webhooks (INVOICING.INVOICE.PAID, CHECKOUT.ORDER.APPROVED) instead of polling; "copy nudge" → Gmail draft.
+- [ ] **No Devpost submit without Sumit's OK.**
